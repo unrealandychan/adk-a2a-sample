@@ -3,6 +3,7 @@
 import json
 
 from adk_a2a.a2a.card import build_gemini_enterprise_agent_card
+from adk_a2a.core.config import get_settings
 from adk_a2a.integrations.ge_registration import (
     build_ge_agent_registration_payload,
     build_ge_authorization_payload,
@@ -36,8 +37,9 @@ def test_ge_authorization_payload() -> None:
         == "projects/1234567890/locations/global/authorizations/todoist-auth-id"
     )
     oauth_config = payload["serverSideOauth2"]
-    assert oauth_config["clientId"] == "f1d3a4ec08fb4b60a61679156e2edd92"
-    assert oauth_config["clientSecret"] == "f1d3a4ec08fb4b60a61679156e2edd92"
+    settings = get_settings()
+    assert oauth_config["clientId"] == settings.todoist_client_id
+    assert oauth_config["clientSecret"] == settings.todoist_client_secret
     assert "https://todoist.com/oauth/authorize" in oauth_config["authorizationUri"]
     assert "vertexaisearch.cloud.google.com" in oauth_config["authorizationUri"]
     assert oauth_config["tokenUri"] == "https://todoist.com/oauth/access_token"

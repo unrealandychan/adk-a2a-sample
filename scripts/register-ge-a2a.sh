@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Register A2A Agent with Gemini Enterprise (GE) / Discovery Engine
+# Register or Update A2A Agent with Gemini Enterprise (GE) / Discovery Engine
 # Reference: https://docs.cloud.google.com/gemini/enterprise/docs/register-and-manage-an-a2a-agent
 # =============================================================================
 
@@ -117,8 +117,8 @@ if [[ ! "$AGENT_SERVICE_URL" =~ ^https:// ]]; then
     exit 1
 fi
 
-# Step 1: Add Authorization Resource to Gemini Enterprise
-echo -e "\n${COLOR_INFO}[Step 1/2] Creating Todoist OAuth 2.0 Authorization Resource in GE...${COLOR_RESET}"
+# Step 1: Add or Update Authorization Resource in Gemini Enterprise
+echo -e "\n${COLOR_INFO}[Step 1/2] Creating/Updating Todoist OAuth 2.0 Authorization Resource in GE...${COLOR_RESET}"
 AUTH_URI="https://todoist.com/oauth/authorize?client_id=${TODOIST_CLIENT_ID}&redirect_uri=https%3A%2F%2Fvertexaisearch.cloud.google.com%2Fstatic%2Foauth%2Foauth.html&scope=data%3Aread_write%20task%3Aadd&response_type=code&access_type=offline&prompt=consent"
 
 if command -v gcloud &> /dev/null && [ "$PROJECT_NUMBER" != "YOUR_PROJECT_NUMBER" ]; then
@@ -160,38 +160,68 @@ if command -v gcloud &> /dev/null && [ "$PROJECT_NUMBER" != "YOUR_PROJECT_NUMBER
     fi
 fi
 
-# Step 2: Register A2A Agent with Gemini Enterprise
+# Step 2: Register or Update A2A Agent with Gemini Enterprise
 if [ "$APP_ID" != "YOUR_APP_ID" ]; then
-    echo -e "\n${COLOR_INFO}[Step 2/2] Registering A2A Agent in Gemini Enterprise Assistant...${COLOR_RESET}"
+    echo -e "\n${COLOR_INFO}[Step 2/2] Registering/Updating A2A Agent in Gemini Enterprise Assistant...${COLOR_RESET}"
 
     AGENT_CARD_JSON="{\"protocolVersion\":\"0.3.0\",\"name\":\"${AGENT_NAME}\",\"description\":\"ADK 2.0 A2A Agent managing Todoist tasks with OAuth 2.0 and weather computation.\",\"url\":\"${AGENT_SERVICE_URL}\",\"version\":\"1.0.0\",\"defaultInputModes\":[\"text/plain\",\"application/json\"],\"defaultOutputModes\":[\"text/plain\",\"application/json\"],\"capabilities\":{\"streaming\":false},\"skills\":[{\"id\":\"todoist_management\",\"name\":\"Todoist Task Management\",\"description\":\"Manage user tasks, list active tasks, create new items, and complete tasks in Todoist.\",\"tags\":[\"productivity\",\"todoist\",\"tasks\"],\"examples\":[\"List my todoist tasks\",\"Create a task to review ADK architecture\",\"Complete task 101\"]},{\"id\":\"weather_analysis\",\"name\":\"Weather Analysis\",\"description\":\"Query global city weather conditions and temperature forecasts.\",\"tags\":[\"weather\",\"meteorology\",\"forecast\"],\"examples\":[\"What is the weather in Tokyo?\",\"Compare temperature between Paris and London\"]},{\"id\":\"calculator\",\"name\":\"Calculator\",\"description\":\"Evaluate mathematical formulas and numerical comparisons.\",\"tags\":[\"math\",\"calculator\"],\"examples\":[\"Calculate 25 * 4 + 10\",\"Compute 100 / 4\"]}]}"
 
     ESCAPED_AGENT_CARD=$(echo "$AGENT_CARD_JSON" | sed 's/"/\\"/g')
 
     if command -v gcloud &> /dev/null && [ "$PROJECT_NUMBER" != "YOUR_PROJECT_NUMBER" ]; then
-        REGISTER_ENDPOINT="https://${ENDPOINT_LOCATION}-discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_ID}/locations/${LOCATION}/collections/default_collection/engines/${APP_ID}/assistants/default_assistant/agents"
+        BASE_AGENTS_URL="https://${ENDPOINT_LOCATION}-discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_ID}/locations/${LOCATION}/collections/default_collection/engines/${APP_ID}/assistants/default_assistant/agents"
 
-        echo "Registering agent at: $REGISTER_ENDPOINT"
-        REG_RES=$(curl -s -X POST "$REGISTER_ENDPOINT" \
-            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -H "X-Goog-User-Project: ${PROJECT_ID}" \
-            -d "{
-                \"name\": \"${AGENT_NAME}\",
-                \"displayName\": \"${AGENT_DISPLAY_NAME}\",
-                \"description\": \"ADK 2.0 A2A Agent managing Todoist tasks with OAuth 2.0 and weather computation.\",
-                \"a2aAgentDefinition\": {
-                    \"jsonAgentCard\": \"${ESCAPED_AGENT_CARD}\"
-                },
-                \"authorizationConfig\": {
-                    \"agentAuthorization\": \"projects/${PROJECT_NUMBER}/locations/${LOCATION}/authorizations/${AUTH_ID}\"
-                }
-            }")
-        echo "$REG_RES"
+        # Check existing agents list to see if an agent already exists
+        echo "Querying existing agents in assistant..."
+        EXISTING_AGENTS_JSON=$(curl -s -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "X-Goog-User-Project: ${PROJECT_ID}" "${BASE_AGENTS_URL}" || echo "{}")
+        
+        # Find existing agent ID if present
+        EXISTING_AGENT_ID=$(echo "$EXISTING_AGENTS_JSON" | grep -o '"name": *"[^"]*"' | head -n 1 | sed -E 's/.*\/agents\/([^"]+)"/\1/' || echo "")
+
+        TARGET_AGENT_ID="${EXISTING_AGENT_ID:-$AGENT_NAME}"
+
+        if [ -n "$EXISTING_AGENT_ID" ]; then
+            echo -e "${COLOR_INFO}Existing agent found: '${TARGET_AGENT_ID}'. Updating via PATCH...${COLOR_RESET}"
+            PATCH_AGENT_URL="${BASE_AGENTS_URL}/${TARGET_AGENT_ID}?updateMask=a2aAgentDefinition,authorizationConfig,displayName,description"
+            
+            REG_RES=$(curl -s -X PATCH "$PATCH_AGENT_URL" \
+                -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -H "X-Goog-User-Project: ${PROJECT_ID}" \
+                -d "{
+                    \"displayName\": \"${AGENT_DISPLAY_NAME}\",
+                    \"description\": \"ADK 2.0 A2A Agent managing Todoist tasks with OAuth 2.0 and weather computation.\",
+                    \"a2aAgentDefinition\": {
+                        \"jsonAgentCard\": \"${ESCAPED_AGENT_CARD}\"
+                    },
+                    \"authorizationConfig\": {
+                        \"agentAuthorization\": \"projects/${PROJECT_NUMBER}/locations/${LOCATION}/authorizations/${AUTH_ID}\"
+                    }
+                }")
+            echo "$REG_RES"
+        else
+            echo "Registering new agent at: $BASE_AGENTS_URL"
+            REG_RES=$(curl -s -X POST "$BASE_AGENTS_URL" \
+                -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -H "X-Goog-User-Project: ${PROJECT_ID}" \
+                -d "{
+                    \"name\": \"${AGENT_NAME}\",
+                    \"displayName\": \"${AGENT_DISPLAY_NAME}\",
+                    \"description\": \"ADK 2.0 A2A Agent managing Todoist tasks with OAuth 2.0 and weather computation.\",
+                    \"a2aAgentDefinition\": {
+                        \"jsonAgentCard\": \"${ESCAPED_AGENT_CARD}\"
+                    },
+                    \"authorizationConfig\": {
+                        \"agentAuthorization\": \"projects/${PROJECT_NUMBER}/locations/${LOCATION}/authorizations/${AUTH_ID}\"
+                    }
+                }")
+            echo "$REG_RES"
+        fi
     fi
 
     echo -e "\n${COLOR_SUCCESS}✅ Registration sequence complete!${COLOR_RESET}"
-    echo -e "You can view your agent in the Gemini Enterprise Console at:"
+    echo -e "You can view and test your agent in the Gemini Enterprise Console at:"
     echo -e "https://console.cloud.google.com/gemini-enterprise/apps/${APP_ID}/agents"
 else
     echo -e "\n${COLOR_WARN}Skipping Step 2 because no valid GE_APP_ID was provided.${COLOR_RESET}"
