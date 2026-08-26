@@ -78,3 +78,4 @@ def build_ge_agent_registration_payload(
         }
 
     return payload
+

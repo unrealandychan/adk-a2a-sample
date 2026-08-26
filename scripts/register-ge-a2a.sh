@@ -115,3 +115,4 @@ fi
 echo -e "\n${COLOR_SUCCESS}✅ Registration sequence complete!${COLOR_RESET}"
 echo -e "You can also register manually via the Google Cloud Console at:"
 echo -e "https://console.cloud.google.com/gemini-enterprise/apps/${APP_ID}/agents"
+
