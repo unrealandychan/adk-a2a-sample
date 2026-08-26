@@ -1,5 +1,6 @@
 """Application settings and configuration management."""
 
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,6 +17,10 @@ class Settings(BaseSettings):
 
     # Gemini / ADK Configuration
     google_api_key: str = ""
+    google_genai_use_vertexai: bool = True
+    google_cloud_project: str = ""
+    google_cloud_region: str = "us-central1"
+    google_cloud_location: str = "us-central1"
     adk_model: str = "gemini-2.5-flash"
     adk_environment: str = "development"
     log_level: str = "INFO"
@@ -40,8 +45,22 @@ class Settings(BaseSettings):
     todoist_scopes: str = "data:read_write,task:add"
     todoist_api_base_url: str = "https://api.todoist.com/rest/v2"
 
+    def setup_google_credentials(self) -> None:
+        """Configures GenAI / ADK to use Vertex AI via Service Account / ADC when no API key is set."""
+        if not self.google_api_key or self.google_genai_use_vertexai:
+            os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
+            os.environ["GOOGLE_GENAI_USE_ENTERPRISE"] = "true"
+            if self.google_cloud_project:
+                os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_cloud_project
+            if self.google_cloud_location or self.google_cloud_region:
+                loc = self.google_cloud_location or self.google_cloud_region
+                os.environ["GOOGLE_CLOUD_LOCATION"] = loc
+                os.environ["VERTEX_AI_LOCATION"] = loc
+
 
 @lru_cache
 def get_settings() -> Settings:
     """Returns a cached singleton instance of application settings."""
-    return Settings()
+    settings = Settings()
+    settings.setup_google_credentials()
+    return settings

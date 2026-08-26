@@ -105,7 +105,7 @@ deploy_cloud_run() {
     --region "${REGION}" \
     --port "${PORT}" \
     --allow-unauthenticated \
-    --set-env-vars="ADK_ENVIRONMENT=production,ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS=true" \
+    --set-env-vars="ADK_ENVIRONMENT=production,ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS=true,GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_GENAI_USE_ENTERPRISE=true,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},VERTEX_AI_LOCATION=${REGION}" \
     --quiet
 
   # 6. Retrieve service URL and verify Agent Card
