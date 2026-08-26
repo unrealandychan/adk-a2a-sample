@@ -11,7 +11,7 @@ COLOR_INFO   := \033[36m
 COLOR_SUCCESS:= \033[32m
 COLOR_WARN   := \033[33m
 
-.PHONY: help install run serve info todoist-auth test lint format check report docker-build docker-up docker-down deploy-cloud-run deploy-ge clean
+.PHONY: help install run serve info todoist-auth ge-manifest test lint format check report docker-build docker-up docker-down deploy-cloud-run deploy-ge register-ge-a2a clean
 
 ## 📋 Help & Overview
 help: ## Show this help message
@@ -39,6 +39,9 @@ info: ## Display A2A Agent Card and environment settings
 
 todoist-auth: ## Display Todoist OAuth2 login URL and instructions
 	@uv run python main.py todoist-auth
+
+ge-manifest: ## Display Gemini Enterprise A2A registration manifest & payloads
+	@uv run python main.py ge-manifest
 
 ## 🧪 Testing & Code Quality
 test: ## Run automated pytest suite
@@ -73,7 +76,7 @@ docker-down: ## Stop local docker compose services
 	@echo -e "$(COLOR_INFO)Stopping docker compose services...$(COLOR_RESET)"
 	docker compose down
 
-## ☁️ Cloud Deployment
+## ☁️ Cloud Deployment & Gemini Enterprise Registration
 deploy-cloud-run: ## Deploy A2A service to Google Cloud Run (requires GOOGLE_CLOUD_PROJECT)
 	@echo -e "$(COLOR_INFO)Deploying to Google Cloud Run...$(COLOR_RESET)"
 	./scripts/deploy.sh cloud_run
@@ -81,6 +84,10 @@ deploy-cloud-run: ## Deploy A2A service to Google Cloud Run (requires GOOGLE_CLO
 deploy-ge: ## Deploy to Vertex AI Agent Engine (GE) (requires GOOGLE_CLOUD_PROJECT)
 	@echo -e "$(COLOR_INFO)Deploying to Vertex AI Agent Engine (GE)...$(COLOR_RESET)"
 	./scripts/deploy.sh agent_engine
+
+register-ge-a2a: ## Register A2A Agent & Todoist OAuth in Gemini Enterprise
+	@echo -e "$(COLOR_INFO)Registering A2A Agent in Gemini Enterprise...$(COLOR_RESET)"
+	./scripts/register-ge-a2a.sh
 
 ## 🧹 Maintenance & Cleanup
 clean: ## Remove temporary cache and test artifacts

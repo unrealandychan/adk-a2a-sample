@@ -3,10 +3,10 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![ADK 2.0](https://img.shields.io/badge/ADK-2.0-green.svg)](https://adk.dev/2.0/)
 [![A2A Protocol](https://img.shields.io/badge/A2A-Protocol-purple.svg)](https://adk.dev/a2a/quickstart-exposing/)
-[![Google Cloud / GE](https://img.shields.io/badge/Google%20Cloud-Agent%20Engine%20(GE)-blue.svg)](https://cloud.google.com/vertex-ai)
+[![Gemini Enterprise / GE](https://img.shields.io/badge/Gemini%20Enterprise-A2A%20Registration-blue.svg)](https://docs.cloud.google.com/gemini/enterprise/docs/register-and-manage-an-a2a-agent)
 [![Clean Code](https://img.shields.io/badge/Clean%20Code-DDD%20%2B%20Harness-orange.svg)](https://github.com/unrealandychan/clean-code-skill)
 
-A production-ready **Google Agent Development Kit (ADK) 2.0** multi-agent starter boilerplate featuring **Agent-to-Agent (A2A)** protocol communication, **Vertex AI Agent Engine (GE)** integration, **Graph Engine (GE)** workflows, and automated **Cloud Run & Docker** deployment scripts, built following **Clean Code**, **Domain-Driven Design (DDD)**, and **Harness Engineering** principles from [`unrealandychan/clean-code-skill`](https://github.com/unrealandychan/clean-code-skill).
+A production-ready **Google Agent Development Kit (ADK) 2.0** multi-agent starter boilerplate featuring **Agent-to-Agent (A2A)** protocol communication, **Gemini Enterprise (GE) / Discovery Engine** A2A registration with **Todoist OAuth 2.0**, **Vertex AI Agent Engine**, **Graph Engine** workflows, and automated **Cloud Run & Docker** deployment scripts, built following **Clean Code**, **Domain-Driven Design (DDD)**, and **Harness Engineering** principles from [`unrealandychan/clean-code-skill`](https://github.com/unrealandychan/clean-code-skill).
 
 ---
 
@@ -16,32 +16,36 @@ A production-ready **Google Agent Development Kit (ADK) 2.0** multi-agent starte
 adk-a2a-sample/
 ├── src/adk_a2a/
 │   ├── domain/               # Pure Domain: Entities, Value Objects, Domain Exceptions
-│   │   ├── models.py         # Immutable Value Objects (CityWeather, CalculationResult, AgentCard)
+│   │   ├── models.py         # Immutable Value Objects (CityWeather, TodoistTask, AgentCard)
 │   │   └── exceptions.py     # DomainError, AgentExecutionError, ToolExecutionError
 │   ├── agents/               # ADK Agents & Orchestration
 │   │   ├── orchestrator.py   # Master Orchestrator Agent delegating tasks to local & RemoteA2aAgent
-│   │   └── specialized.py    # Native ADK Agents: Weather Analyst Agent, Calculator Agent
+│   │   └── specialized.py    # Native ADK Agents: Todoist Agent, Weather Analyst Agent, Calculator
 │   ├── tools/                # Pure, testable tools with type contracts
+│   │   ├── todoist.py        # Todoist App OAuth 2.0 & Task Management tools
 │   │   ├── calculator.py     # Safe arithmetic computation
 │   │   └── weather.py        # Weather retrieval service
 │   ├── a2a/                  # A2A Protocol Implementation (to_a2a wrapper, server & client)
 │   │   ├── server.py         # to_a2a() ASGI bridge & discovery endpoints
-│   │   ├── card.py           # Standardized Agent Card descriptor builder
+│   │   ├── card.py           # Standardized Agent Card descriptor & Gemini Enterprise v0.3.0 builders
 │   │   └── client.py         # Remote A2A Agent HTTP client
-│   ├── integrations/         # Google Cloud & GE (Agent Engine & Graph Engine) Integrations
-│   │   ├── agent_engine.py   # Vertex AI Agent Engine (GE) Session, Memory & App Factory
-│   │   └── graph_engine.py   # Graph Engine (GE) Topological Multi-Agent Workflow State
+│   ├── integrations/         # Google Cloud & GE (Discovery Engine, Agent Engine, Graph Engine)
+│   │   ├── ge_registration.py# Gemini Enterprise A2A & OAuth2 Authorization registration payloads
+│   │   ├── agent_engine.py   # Vertex AI Agent Engine Session, Memory & App Factory
+│   │   └── graph_engine.py   # Graph Engine Topological Multi-Agent Workflow State
 │   └── core/                 # Observability & Configuration
 │       ├── config.py         # Pydantic Settings
 │       └── logging.py        # Structured logging with correlation ID tracing
-├── tests/                    # Automated Pytest Suite
+├── tests/                    # Automated Pytest Suite (41 tests passing)
 │   ├── test_domain.py        # Domain model immutability & validation tests
 │   ├── test_tools.py         # Tool unit tests & error handling
+│   ├── test_todoist.py       # Todoist OAuth2 & CRUD unit tests
+│   ├── test_ge_registration.py # Gemini Enterprise A2A registration & card tests
 │   ├── test_agents.py        # Agent orchestration tests
 │   ├── test_a2a_server.py    # A2A server, to_a2a() exposure & discovery tests
 │   └── test_integrations.py  # GE (Agent Engine & Graph Engine) integration tests
-├── skills/                   # Clean Code + DDD + Harness Engineering Skill Kit
 ├── scripts/                  # Deployment & Tooling scripts
+│   ├── register-ge-a2a.sh    # Automated Gemini Enterprise A2A & OAuth registration
 │   ├── deploy.sh             # Unified deployment script (Cloud Run, GE, Docker)
 │   └── lint-and-report.sh    # Fast linting and AI report generator
 ├── Dockerfile                # Multi-stage optimized container image
@@ -77,37 +81,46 @@ a2a_app = to_a2a(weather_agent, port=8080)
 
 ---
 
-## 🧠 Google Cloud & GE (Agent Engine & Graph Engine) Integrations
+## 🏛️ Registering A2A Agent with Gemini Enterprise (GE)
 
-### 1. Vertex AI Agent Engine (GE) Integration
-Connects A2A agents with managed Vertex AI Agent Engine services:
-- **Session Services**: Stateful multi-turn conversation persistence (`VertexAiSessionService`).
-- **Memory Banks**: Semantic long-term agent memory (`VertexAiMemoryBankService`).
-- **Cloud Tracing & Telemetry**: OpenTelemetry traces exported to Google Cloud Trace.
+According to the [Gemini Enterprise A2A Agent Registration Guide](https://docs.cloud.google.com/gemini/enterprise/docs/register-and-manage-an-a2a-agent#register_a2a_agent-console), A2A agents can be registered into Gemini Enterprise apps with end-user OAuth 2.0 authorization support.
 
-```python
-from adk_a2a.integrations.agent_engine import AgentEngineConfig, create_ge_integrated_a2a_app
+### Option 1: Automated Registration Script
+Set your GCP project and run:
+```bash
+GOOGLE_CLOUD_PROJECT=your-gcp-project make register-ge-a2a
+```
+This script will:
+1. Create the `authorizations` resource in Discovery Engine with the Todoist OAuth2 credentials.
+2. Generate the A2A v0.3.0 compliant Agent Card descriptor.
+3. Register the agent in your Gemini Enterprise assistant with OAuth delegation.
 
-config = AgentEngineConfig(project_id="my-gcp-project", location="us-central1")
-a2a_ge_app = create_ge_integrated_a2a_app(config=config, port=8080)
+### Option 2: Inspect Payloads / Google Cloud Console Setup
+To print the JSON manifests ready to paste into the Google Cloud Console:
+```bash
+make ge-manifest
+# or with project number:
+uv run python main.py ge-manifest --project-number 1234567890 --url https://your-a2a-service.run.app
 ```
 
-### 2. Graph Engine (GE) Workflow Topologies
-Provides deterministic routing across local and remote A2A agents using state-graph principles:
+#### Steps in Google Cloud Console:
+1. Open [Gemini Enterprise Console](https://console.cloud.google.com/gemini-enterprise/).
+2. Select your App $\to$ **Agents** $\to$ **Add Agents** $\to$ **Custom agent via A2A**.
+3. Paste the **A2A Agent Card JSON** (from `make ge-manifest`).
+4. In Authorization, enter the **Client ID** (`f1d3a4ec08fb4b60a61679156e2edd92`), **Client Secret**, and Redirect URI (`https://vertexaisearch.cloud.google.com/oauth-redirect`).
+5. Click **Finish**.
 
-```python
-from adk_a2a.integrations.graph_engine import create_ge_graph_agent
+---
 
-graph_agent = create_ge_graph_agent(
-    remote_weather_card_url="http://localhost:8080/.well-known/agent-card.json"
-)
-```
+## 🔐 Todoist App OAuth 2.0 Integration
 
-### 3. Todoist App OAuth 2.0 Integration
 Follows the official [ADK Custom Tools OAuth 2.0 Authentication specification](https://adk.dev/tools-custom/authentication/#oauth2):
 
 - **Client ID**: `f1d3a4ec08fb4b60a61679156e2edd92`
-- **Redirect URI**: `https://vertexaisearch.cloud.google.com/oauth-redirect`
+- **Client Secret**: `f1d3a4ec08fb4b60a61679156e2edd92`
+- **Redirect URIs**:
+  - `https://vertexaisearch.cloud.google.com/oauth-redirect`
+  - `https://vertexaisearch.cloud.google.com/static/oauth/oauth.html`
 - **Scopes**: `data:read_write,task:add`
 - **Supported Operations**: List tasks (`get_todoist_tasks`), Create task (`create_todoist_task`), Complete task (`complete_todoist_task`), and OAuth token exchange (`exchange_todoist_code`).
 
@@ -119,35 +132,8 @@ make todoist-auth
 uv run python main.py todoist-auth --exchange <AUTHORIZATION_CODE>
 ```
 
----
-
-## 🚀 Deployment Scripts
-
-### 1. Deploy to Google Cloud Run
-Deploys the containerized A2A micro-service with automated Cloud Build and Artifact Registry publishing:
-
-```bash
-GOOGLE_CLOUD_PROJECT=your-gcp-project ./scripts/deploy.sh cloud_run
-```
-
-### 2. Deploy to Vertex AI Agent Engine (GE)
-Deploys the agent directly into the managed Vertex AI Agent Engine runtime:
-
-```bash
-GOOGLE_CLOUD_PROJECT=your-gcp-project ./scripts/deploy.sh agent_engine
-```
-
-### 3. Local Docker Build & Test
-Builds the minimal multi-stage image locally:
-
-```bash
-./scripts/deploy.sh docker
-```
-
-Or with Docker Compose:
-```bash
-docker compose up -d
-```
+> [!TIP]
+> **Single User / Dev Testing Alternative**: If you just want to manage your personal tasks without multi-user OAuth login flows, you can simply set `TODOIST_API_TOKEN=<your_personal_token>` in `.env` (obtained from Todoist Settings $\to$ Integrations $\to$ Developer $\to$ API token).
 
 ---
 
@@ -161,6 +147,8 @@ make install            # Install all dependencies with uv
 make run                # Run orchestrator goal locally
 make serve              # Launch A2A agent server on port 8080 (to_a2a mode)
 make info               # Print A2A Agent Card descriptor
+make todoist-auth       # Display Todoist OAuth2 login URL and instructions
+make ge-manifest        # Display Gemini Enterprise A2A registration manifest & payloads
 make test               # Run Pytest suite
 make lint               # Run Ruff linter and strict Mypy
 make format             # Auto-format code with Ruff
@@ -171,38 +159,34 @@ make docker-up          # Start containers with docker compose
 make docker-down        # Stop docker compose containers
 make deploy-cloud-run   # Deploy to Google Cloud Run
 make deploy-ge          # Deploy to Vertex AI Agent Engine (GE)
+make register-ge-a2a    # Register A2A Agent & Todoist OAuth in Gemini Enterprise
 make clean              # Clean cache files and build artifacts
 ```
 
 ---
 
-## 🛠 Local Usage & CLI Commands
+## 🚀 Cloud Run & Vertex AI Deployment
 
-### Inspect Agent Card & Discovery Metadata
+### 1. Deploy to Google Cloud Run
 ```bash
-uv run python main.py info
+GOOGLE_CLOUD_PROJECT=your-gcp-project ./scripts/deploy.sh cloud_run
 ```
 
-### Run an Orchestrator Task Locally
+### 2. Deploy to Vertex AI Agent Engine (GE)
 ```bash
-# Run multi-agent weather comparison
-uv run python main.py run "Compare the temperature difference between Tokyo and Paris"
-
-# Run calculation task
-uv run python main.py run "calculate (50 * 4) + (100 / 2)"
+GOOGLE_CLOUD_PROJECT=your-gcp-project ./scripts/deploy.sh agent_engine
 ```
 
-### Start the A2A Micro-Agent Server via `to_a2a()`
+### 3. Local Docker Build & Test
 ```bash
-# Serves the weather agent via to_a2a on port 8080
-uv run python main.py serve --host 0.0.0.0 --port 8080 --mode adk
+./scripts/deploy.sh docker
 ```
 
 ---
 
 ## 🧪 Testing & Code Quality
 
-### Run Automated Tests (25/25 Passing)
+### Run Automated Tests (41/41 Passing)
 ```bash
 uv run pytest
 ```
@@ -216,11 +200,6 @@ uv run ruff format .
 ### Run Mypy Strict Type Checking
 ```bash
 uv run mypy src/ tests/
-```
-
-### Clean Code Lint → AI Report Script
-```bash
-./scripts/lint-and-report.sh
 ```
 
 ---

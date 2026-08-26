@@ -6,6 +6,10 @@ from adk_a2a.integrations.agent_engine import (
     create_agent_engine_session_service,
     create_ge_integrated_a2a_app,
 )
+from adk_a2a.integrations.ge_registration import (
+    build_ge_agent_registration_payload,
+    build_ge_authorization_payload,
+)
 from adk_a2a.integrations.graph_engine import (
     GraphEngineCoordinator,
     GraphWorkflowState,
@@ -16,9 +20,10 @@ __all__ = [
     "AgentEngineConfig",
     "GraphEngineCoordinator",
     "GraphWorkflowState",
+    "build_ge_agent_registration_payload",
+    "build_ge_authorization_payload",
     "create_agent_engine_memory_service",
     "create_agent_engine_session_service",
     "create_ge_graph_agent",
     "create_ge_integrated_a2a_app",
 ]
-

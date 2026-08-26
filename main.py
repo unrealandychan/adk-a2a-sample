@@ -1,15 +1,20 @@
 """CLI Entrypoint for the ADK 2.0 Agent-to-Agent (A2A) sample project."""
 
 import argparse
+import json
 
 import uvicorn
 
-from adk_a2a.a2a.card import build_agent_card
+from adk_a2a.a2a.card import build_agent_card, build_gemini_enterprise_agent_card
 from adk_a2a.a2a.server import create_a2a_app, expose_agent_via_to_a2a
 from adk_a2a.agents.orchestrator import create_orchestrator_agent
 from adk_a2a.core.config import get_settings
 from adk_a2a.core.logging import configure_logging, get_logger
 from adk_a2a.domain.models import AgentTask
+from adk_a2a.integrations.ge_registration import (
+    build_ge_agent_registration_payload,
+    build_ge_authorization_payload,
+)
 from adk_a2a.tools.todoist import exchange_todoist_code, get_todoist_auth_status
 
 logger = get_logger(__name__)
@@ -106,6 +111,34 @@ def todoist_auth_command(exchange_code: str | None = None) -> None:
     print("───────────────────────────────────────────────────────────\n")
 
 
+def ge_manifest_command(
+    project_number: str = "YOUR_PROJECT_NUMBER",
+    location: str = "global",
+    agent_url: str = "http://127.0.0.1:8080",
+) -> None:
+    """Generates Gemini Enterprise A2A registration payloads and Agent Card."""
+    agent_card = build_gemini_enterprise_agent_card(agent_url=agent_url)
+    auth_payload = build_ge_authorization_payload(
+        project_number=project_number,
+        location=location,
+    )
+    reg_payload = build_ge_agent_registration_payload(
+        agent_service_url=agent_url,
+        project_number=project_number,
+        location=location,
+    )
+
+    print("\n🏛️  Gemini Enterprise (GE) A2A Agent Manifest & Payloads")
+    print("───────────────────────────────────────────────────────────")
+    print("1. [A2A Agent Card (v0.3.0)]:")
+    print(json.dumps(agent_card, indent=2))
+    print("\n2. [Discovery Engine Authorization Payload (Todoist OAuth 2.0)]:")
+    print(json.dumps(auth_payload, indent=2))
+    print("\n3. [Gemini Enterprise Agent Registration Payload]:")
+    print(json.dumps(reg_payload, indent=2))
+    print("───────────────────────────────────────────────────────────\n")
+
+
 def main() -> None:
     """Main CLI entrypoint."""
     settings = get_settings()
@@ -169,6 +202,27 @@ def main() -> None:
         help="Exchange an OAuth authorization code for an access token",
     )
 
+    # Command: ge-manifest
+    ge_parser = subparsers.add_parser(
+        "ge-manifest",
+        help="Generate Gemini Enterprise (GE) A2A registration manifests",
+    )
+    ge_parser.add_argument(
+        "--project-number",
+        default="YOUR_PROJECT_NUMBER",
+        help="GCP Project Number",
+    )
+    ge_parser.add_argument(
+        "--location",
+        default="global",
+        help="Discovery Engine location (global, us, eu)",
+    )
+    ge_parser.add_argument(
+        "--url",
+        default=settings.a2a_server_base_url,
+        help="A2A Agent Endpoint URL",
+    )
+
     args = parser.parse_args()
 
     if args.command == "serve":
@@ -177,6 +231,12 @@ def main() -> None:
         info_command()
     elif args.command == "todoist-auth":
         todoist_auth_command(exchange_code=args.exchange_code)
+    elif args.command == "ge-manifest":
+        ge_manifest_command(
+            project_number=args.project_number,
+            location=args.location,
+            agent_url=args.url,
+        )
     elif args.command == "run":
         run_command(goal=args.goal)
     else:
