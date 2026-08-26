@@ -216,3 +216,27 @@ def create_adk_todoist_agent(model: str = "gemini-2.5-flash") -> Agent:
         ],
         model=model,
     )
+
+
+def create_adk_unified_agent(model: str = "gemini-2.5-flash") -> Agent:
+    """Creates a unified native ADK 2.0 Agent supporting Todoist, Weather, and Math tools."""
+    return Agent(
+        name="todoist_weather_agent",
+        description=(
+            "ADK 2.0 A2A Agent managing Todoist tasks with OAuth 2.0, weather forecasts, "
+            "and numerical computations."
+        ),
+        instruction=(
+            "You are a versatile assistant specializing in managing Todoist tasks, querying global weather "
+            "data, and computing mathematical expressions. Use the corresponding tools."
+        ),
+        tools=[
+            get_todoist_tasks,
+            create_todoist_task,
+            complete_todoist_task,
+            get_city_weather,
+            calculate,
+        ],
+        model=model,
+    )
+

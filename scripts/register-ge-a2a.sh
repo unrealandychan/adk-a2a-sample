@@ -125,7 +125,7 @@ if command -v gcloud &> /dev/null && [ "$PROJECT_NUMBER" != "YOUR_PROJECT_NUMBER
     ACCESS_TOKEN=$(gcloud auth print-access-token)
     AUTH_ENDPOINT="https://${ENDPOINT_LOCATION}-discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_NUMBER}/locations/${LOCATION}/authorizations?authorizationId=${AUTH_ID}"
 
-    echo "Registering authorization resource at: $AUTH_ENDPOINT"
+    echo "Registering / updating authorization resource at: $AUTH_ENDPOINT"
     AUTH_RES=$(curl -s -X POST "$AUTH_ENDPOINT" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
@@ -140,6 +140,24 @@ if command -v gcloud &> /dev/null && [ "$PROJECT_NUMBER" != "YOUR_PROJECT_NUMBER
             }
         }")
     echo "$AUTH_RES"
+
+    # If already exists (409 / ALREADY_EXISTS), update it via PATCH to ensure latest credentials
+    if echo "$AUTH_RES" | grep -q "ALREADY_EXISTS"; then
+        echo -e "${COLOR_INFO}Authorization already exists; updating with latest credentials via PATCH...${COLOR_RESET}"
+        PATCH_ENDPOINT="https://${ENDPOINT_LOCATION}-discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_NUMBER}/locations/${LOCATION}/authorizations/${AUTH_ID}?updateMask=serverSideOauth2"
+        curl -s -X PATCH "$PATCH_ENDPOINT" \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -H "X-Goog-User-Project: ${PROJECT_ID}" \
+            -d "{
+                \"serverSideOauth2\": {
+                    \"clientId\": \"${TODOIST_CLIENT_ID}\",
+                    \"clientSecret\": \"${TODOIST_CLIENT_SECRET}\",
+                    \"authorizationUri\": \"${AUTH_URI}\",
+                    \"tokenUri\": \"https://todoist.com/oauth/access_token\"
+                }
+            }" || true
+    fi
 fi
 
 # Step 2: Register A2A Agent with Gemini Enterprise

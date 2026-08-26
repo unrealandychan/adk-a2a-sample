@@ -12,7 +12,7 @@ from starlette.applications import Starlette
 
 from adk_a2a.a2a.card import build_agent_card
 from adk_a2a.agents.orchestrator import create_orchestrator_agent
-from adk_a2a.agents.specialized import create_adk_weather_agent
+from adk_a2a.agents.specialized import create_adk_unified_agent
 from adk_a2a.core.config import get_settings
 from adk_a2a.core.logging import get_logger, set_correlation_id
 from adk_a2a.domain.models import AgentCard, AgentResponse, AgentTask
@@ -34,7 +34,7 @@ def expose_agent_via_to_a2a(
     3. Manages task state and push notifications in-memory.
 
     Args:
-        agent: The primary ADK Agent instance. Defaults to the Weather Agent.
+        agent: The primary ADK Agent instance. Defaults to the Unified Agent.
         host: Hostname for advertised A2A endpoint URLs.
         port: Port number for advertised A2A endpoint URLs.
         agent_card: Optional custom AgentCard object or path to JSON file.
@@ -46,7 +46,7 @@ def expose_agent_via_to_a2a(
     if settings.adk_suppress_a2a_experimental_feature_warnings:
         os.environ["ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS"] = "true"
 
-    target_agent = agent or create_adk_weather_agent(model=settings.adk_model)
+    target_agent = agent or create_adk_unified_agent(model=settings.adk_model)
     logger.info(
         "Exposing agent [%s] via A2A on %s:%d using to_a2a()",
         target_agent.name,
