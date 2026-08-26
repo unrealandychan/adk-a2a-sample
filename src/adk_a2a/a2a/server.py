@@ -9,6 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.agents import Agent
 from starlette.applications import Starlette
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import Request
+from starlette.responses import Response
 
 from adk_a2a.a2a.card import build_agent_card
 from adk_a2a.agents.orchestrator import create_orchestrator_agent
@@ -16,8 +19,28 @@ from adk_a2a.agents.specialized import create_adk_unified_agent
 from adk_a2a.core.config import get_settings
 from adk_a2a.core.logging import get_logger, set_correlation_id
 from adk_a2a.domain.models import AgentCard, AgentResponse, AgentTask
+from adk_a2a.tools.todoist import set_current_todoist_token
 
 logger = get_logger(__name__)
+
+
+class AuthHeaderMiddleware(BaseHTTPMiddleware):
+    """Captures OAuth Bearer token from Gemini Enterprise / A2A proxy headers into context."""
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        token = None
+        for header_name, header_val in request.headers.items():
+            if "authorization" in header_name.lower():
+                if header_val.lower().startswith("bearer "):
+                    token = header_val[7:].strip()
+                    break
+                elif header_val:
+                    token = header_val.strip()
+        if token:
+            set_current_todoist_token(token)
+        return await call_next(request)
 
 
 def expose_agent_via_to_a2a(
@@ -54,12 +77,14 @@ def expose_agent_via_to_a2a(
         port,
     )
 
-    return to_a2a(
+    app = to_a2a(
         target_agent,
         host=host,
         port=port,
         agent_card=agent_card,
     )
+    app.add_middleware(AuthHeaderMiddleware)
+    return app
 
 
 def create_a2a_app() -> FastAPI:

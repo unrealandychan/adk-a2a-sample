@@ -1,5 +1,6 @@
 """Todoist custom tool and OAuth 2.0 integration for Google ADK 2.0."""
 
+import contextvars
 import json
 import urllib.parse
 from typing import Any
@@ -18,6 +19,29 @@ from adk_a2a.domain.exceptions import ToolExecutionError
 from adk_a2a.domain.models import TodoistAuthStatus, TodoistTask
 
 logger = get_logger(__name__)
+
+# Request-scoped ContextVar to hold incoming OAuth2 Bearer token from Gemini Enterprise / A2A proxy
+_current_todoist_token: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_current_todoist_token", default=None
+)
+
+
+def set_current_todoist_token(token: str | None) -> None:
+    """Sets the active request's Todoist OAuth2 Bearer token in the execution context."""
+    _current_todoist_token.set(token)
+
+
+def get_effective_todoist_token(explicit_token: str | None = None) -> str | None:
+    """Retrieves the effective Todoist API token from explicit arg, request context, or settings."""
+    if explicit_token:
+        return explicit_token.strip()
+    ctx_token = _current_todoist_token.get()
+    if ctx_token:
+        if ctx_token.lower().startswith("bearer "):
+            return ctx_token[7:].strip()
+        return ctx_token.strip()
+    settings = get_settings()
+    return settings.todoist_api_token or None
 
 
 def get_todoist_adk_auth_objects() -> tuple[OAuth2, AuthCredential]:
@@ -61,7 +85,8 @@ def get_todoist_auth_url(state: str | None = None) -> str:
 def get_todoist_auth_status() -> TodoistAuthStatus:
     """Returns current Todoist OAuth2 authentication configuration and status."""
     settings = get_settings()
-    has_token = bool(settings.todoist_api_token)
+    effective_token = get_effective_todoist_token()
+    has_token = bool(effective_token)
     return TodoistAuthStatus(
         is_authenticated=has_token,
         access_token_present=has_token,
@@ -104,15 +129,21 @@ def exchange_todoist_code(
 
 def get_todoist_tasks(
     project_id: str | None = None,
-    api_token: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Retrieves active tasks from Todoist REST API v2."""
+    """Retrieves active tasks from Todoist REST API v2.
+
+    Args:
+        project_id: Optional project ID to filter tasks.
+
+    Returns:
+        List of Todoist task items.
+    """
     settings = get_settings()
-    token = api_token or settings.todoist_api_token
+    token = get_effective_todoist_token()
 
     if not token:
         logger.warning(
-            "No Todoist API token provided; returning simulated workspace tasks."
+            "No Todoist OAuth token present in request context; returning simulated workspace tasks."
         )
         return [
             TodoistTask(
@@ -160,14 +191,23 @@ def create_todoist_task(
     due_string: str | None = None,
     priority: int = 1,
     project_id: str | None = None,
-    api_token: str | None = None,
 ) -> dict[str, Any]:
-    """Creates a new task in Todoist."""
+    """Creates a new task in Todoist.
+
+    Args:
+        content: The text description or title of the task.
+        due_string: Optional due date in human readable format (e.g. 'today', 'tomorrow at 5pm').
+        priority: Task priority from 1 (normal) to 4 (urgent).
+        project_id: Optional project ID to place the task into.
+
+    Returns:
+        Dictionary containing task creation status and task details.
+    """
     if not content.strip():
         raise ToolExecutionError("Task content cannot be empty.")
 
     settings = get_settings()
-    token = api_token or settings.todoist_api_token
+    token = get_effective_todoist_token()
 
     if not token:
         logger.info(
@@ -217,14 +257,20 @@ def create_todoist_task(
 
 def complete_todoist_task(
     task_id: str,
-    api_token: str | None = None,
 ) -> dict[str, Any]:
-    """Closes and completes an active task in Todoist."""
+    """Closes and completes an active task in Todoist.
+
+    Args:
+        task_id: The unique ID of the Todoist task to mark as completed.
+
+    Returns:
+        Dictionary containing completion status and success flag.
+    """
     if not task_id.strip():
         raise ToolExecutionError("Task ID cannot be empty.")
 
     settings = get_settings()
-    token = api_token or settings.todoist_api_token
+    token = get_effective_todoist_token()
 
     if not token:
         logger.info(

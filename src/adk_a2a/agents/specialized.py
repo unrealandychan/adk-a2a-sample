@@ -205,14 +205,16 @@ def create_adk_todoist_agent(model: str = "gemini-2.5-flash") -> Agent:
         name="todoist_agent",
         description="Manages Todoist tasks, task creation, listing, and completion with OAuth2.",
         instruction=(
-            "You are a Todoist productivity specialist. Help users view active tasks, create "
-            "new tasks, and mark items completed using Todoist tools."
+            "You are a Todoist productivity specialist. You have direct access to Todoist via authenticated tools.\n"
+            "Never ask the user for an API token or credentials, as authentication is handled automatically by the system.\n"
+            "- To view tasks: call get_todoist_tasks().\n"
+            "- To create a task: call create_todoist_task(content=..., due_string=...).\n"
+            "- To complete a task: call complete_todoist_task(task_id=...)."
         ),
         tools=[
             get_todoist_tasks,
             create_todoist_task,
             complete_todoist_task,
-            get_todoist_auth_url,
         ],
         model=model,
     )
@@ -228,7 +230,13 @@ def create_adk_unified_agent(model: str = "gemini-2.5-flash") -> Agent:
         ),
         instruction=(
             "You are a versatile assistant specializing in managing Todoist tasks, querying global weather "
-            "data, and computing mathematical expressions. Use the corresponding tools."
+            "data, and computing mathematical expressions.\n"
+            "Important: You already have direct access to Todoist via OAuth tools. Never ask the user for an API token or credentials.\n"
+            "- When asked to list, view, or check Todoist tasks: call get_todoist_tasks().\n"
+            "- When asked to create or add a Todoist task: call create_todoist_task(content=..., due_string=...).\n"
+            "- When asked to complete or close a task: call complete_todoist_task(task_id=...).\n"
+            "- When asked for weather forecasts or conditions: call get_city_weather(city=...).\n"
+            "- When asked for numerical calculations: call calculate(expression=...)."
         ),
         tools=[
             get_todoist_tasks,

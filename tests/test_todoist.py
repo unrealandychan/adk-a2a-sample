@@ -68,7 +68,7 @@ def test_todoist_auth_status() -> None:
 
 def test_get_todoist_tasks_sandbox() -> None:
     """Tests retrieving tasks in offline / sandbox mode."""
-    tasks = get_todoist_tasks(api_token="")
+    tasks = get_todoist_tasks()
     assert len(tasks) >= 2
     assert "content" in tasks[0]
 
@@ -120,7 +120,19 @@ def test_create_adk_todoist_agent() -> None:
     """Tests initializing native Google ADK Todoist agent."""
     agent = create_adk_todoist_agent()
     assert agent.name == "todoist_agent"
-    assert len(agent.tools) == 4
+    assert len(agent.tools) == 3
+
+
+def test_todoist_context_token_handling() -> None:
+    """Tests setting and getting request-scoped context token."""
+    from adk_a2a.tools.todoist import (
+        get_effective_todoist_token,
+        set_current_todoist_token,
+    )
+
+    set_current_todoist_token("Bearer oauth_token_xyz_123")
+    assert get_effective_todoist_token() == "oauth_token_xyz_123"
+    set_current_todoist_token(None)
 
 
 def test_todoist_domain_agent_execution() -> None:
