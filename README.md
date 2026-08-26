@@ -206,3 +206,4 @@ uv run mypy src/ tests/
 
 ## 📄 License
 MIT
+
