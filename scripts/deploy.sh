@@ -19,7 +19,6 @@ fi
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-}"
 REGION="${GOOGLE_CLOUD_REGION:-us-central1}"
 SERVICE_NAME="${A2A_SERVICE_NAME:-adk-a2a-service}"
-IMAGE_NAME="${A2A_IMAGE_NAME:-gcr.io/${PROJECT_ID}/${SERVICE_NAME}:latest}"
 PORT="${PORT:-8080}"
 MODE="${1:-cloud_run}"
 
@@ -49,10 +48,10 @@ EOF
 
 deploy_docker() {
   echo "============================================================"
-  echo "🐳 Building Local Production Docker Image..."
+  echo "Building Local Production Docker Image..."
   echo "============================================================"
   docker build -t "${SERVICE_NAME}:latest" .
-  echo "✅ Docker image built successfully: ${SERVICE_NAME}:latest"
+  echo "Docker image built successfully: ${SERVICE_NAME}:latest"
   echo ""
   echo "To test run locally:"
   echo "  docker run -p ${PORT}:8080 -e GOOGLE_API_KEY=\"\${GOOGLE_API_KEY}\" ${SERVICE_NAME}:latest"
@@ -60,13 +59,13 @@ deploy_docker() {
 
 deploy_cloud_run() {
   if [[ -z "${PROJECT_ID}" ]]; then
-    echo "❌ Error: GOOGLE_CLOUD_PROJECT environment variable is not set."
+    echo "Error: GOOGLE_CLOUD_PROJECT environment variable is not set."
     echo "Please set it in your .env file: GOOGLE_CLOUD_PROJECT=your-project-id"
     exit 1
   fi
 
   echo "============================================================"
-  echo "☁️  Deploying ADK A2A Service to Google Cloud Run"
+  echo "Deploying ADK A2A Service to Google Cloud Run"
   echo "============================================================"
   echo "Project : ${PROJECT_ID}"
   echo "Region  : ${REGION}"
@@ -76,16 +75,16 @@ deploy_cloud_run() {
 
   # 1. Check if gcloud CLI is available
   if ! command -v gcloud &> /dev/null; then
-    echo "❌ Error: 'gcloud' CLI is required for Cloud Run deployment."
+    echo "Error: 'gcloud' CLI is required for Cloud Run deployment."
     exit 1
   fi
 
   # 2. Configure GCP project
-  echo "⚙️ Setting active project to ${PROJECT_ID}..."
+  echo "Setting active project to ${PROJECT_ID}..."
   gcloud config set project "${PROJECT_ID}" --quiet
 
   # 3. Enable necessary Google Cloud APIs
-  echo "🔌 Enabling required GCP APIs (Cloud Run, Artifact Registry, Cloud Build, Vertex AI)..."
+  echo "Enabling required GCP APIs (Cloud Run, Artifact Registry, Cloud Build, Vertex AI)..."
   gcloud services enable \
     run.googleapis.com \
     artifactregistry.googleapis.com \
@@ -95,11 +94,11 @@ deploy_cloud_run() {
 
   # 4. Build and push container using Google Cloud Build
   IMAGE_TAG="gcr.io/${PROJECT_ID}/${SERVICE_NAME}:latest"
-  echo "📦 Submitting build to Google Cloud Build: ${IMAGE_TAG}..."
+  echo "Submitting build to Google Cloud Build: ${IMAGE_TAG}..."
   gcloud builds submit --tag "${IMAGE_TAG}" .
 
   # 5. Deploy to Cloud Run with A2A configuration
-  echo "🚀 Deploying container to Cloud Run..."
+  echo "Deploying container to Cloud Run..."
   gcloud run deploy "${SERVICE_NAME}" \
     --image "${IMAGE_TAG}" \
     --platform managed \
@@ -113,7 +112,7 @@ deploy_cloud_run() {
   SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" --platform managed --region "${REGION}" --format="value(status.url)")
   echo ""
   echo "============================================================"
-  echo "🎉 Deployment Successful!"
+  echo "Deployment Successful!"
   echo "Service URL      : ${SERVICE_URL}"
   echo "A2A Agent Card   : ${SERVICE_URL}/.well-known/agent-card.json"
   echo "Health Endpoint  : ${SERVICE_URL}/healthz"
@@ -122,12 +121,12 @@ deploy_cloud_run() {
 
 deploy_agent_engine() {
   if [[ -z "${PROJECT_ID}" ]]; then
-    echo "❌ Error: GOOGLE_CLOUD_PROJECT environment variable is not set in .env or environment."
+    echo "Error: GOOGLE_CLOUD_PROJECT environment variable is not set in .env or environment."
     exit 1
   fi
 
   echo "============================================================"
-  echo "🧠 Deploying A2A Agent to Vertex AI Agent Engine (GE)"
+  echo "Deploying A2A Agent to Vertex AI Agent Engine (GE)"
   echo "============================================================"
   echo "Project  : ${PROJECT_ID}"
   echo "Location : ${REGION}"
@@ -135,7 +134,7 @@ deploy_agent_engine() {
 
   # Check ADK CLI availability
   if command -v adk &> /dev/null || python -m google.adk --help &> /dev/null; then
-    echo "🚀 Invoking ADK Agent Engine deployment..."
+    echo "Invoking ADK Agent Engine deployment..."
     uv run python -c "
 import os
 from google.adk.cli.cli_deploy import to_agent_engine
@@ -148,9 +147,9 @@ to_agent_engine(
     description='ADK 2.0 A2A Agent deployed to Vertex AI Agent Engine'
 )
 "
-    echo "✅ Agent Engine (GE) deployment initiated."
+    echo "Agent Engine (GE) deployment initiated."
   else
-    echo "ℹ️ ADK deployment facade completed. Running Cloud Run deployment with GE configuration..."
+    echo "ADK deployment facade completed. Running Cloud Run deployment with GE configuration..."
     deploy_cloud_run
   fi
 }
