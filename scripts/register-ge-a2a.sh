@@ -6,6 +6,15 @@
 
 set -euo pipefail
 
+# Automatically load variables from local .env if present
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -f "${PROJECT_ROOT}/.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "${PROJECT_ROOT}/.env"
+    set +a
+fi
+
 # Configuration with environment defaults
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-}"
 LOCATION="${GE_LOCATION:-global}"
@@ -31,7 +40,7 @@ echo -e "${COLOR_INFO}  Gemini Enterprise (GE) A2A Agent & OAuth Registration Sc
 echo -e "${COLOR_INFO}=================================================================${COLOR_RESET}"
 
 if [ -z "$PROJECT_ID" ]; then
-    echo -e "${COLOR_WARN}No GOOGLE_CLOUD_PROJECT environment variable provided.${COLOR_RESET}"
+    echo -e "${COLOR_WARN}No GOOGLE_CLOUD_PROJECT set in .env or environment.${COLOR_RESET}"
     echo -e "Attempting to retrieve active project from gcloud..."
     if command -v gcloud &> /dev/null; then
         PROJECT_ID=$(gcloud config get-value project 2>/dev/null || true)
@@ -39,7 +48,7 @@ if [ -z "$PROJECT_ID" ]; then
 fi
 
 if [ -z "$PROJECT_ID" ]; then
-    echo -e "${COLOR_ERROR}ERROR: GCP Project ID is required. Export GOOGLE_CLOUD_PROJECT=your-project-id${COLOR_RESET}"
+    echo -e "${COLOR_ERROR}ERROR: GCP Project ID is required. Set GOOGLE_CLOUD_PROJECT in your .env file.${COLOR_RESET}"
     exit 1
 fi
 
@@ -59,12 +68,13 @@ fi
 
 # Discover Gemini Enterprise / Discovery Engine App ID if not specified
 if [ -z "$APP_ID" ] && command -v gcloud &> /dev/null; then
-    echo -e "${COLOR_INFO}Discovering Gemini Enterprise Apps/Engines in project ${PROJECT_ID}...${COLOR_RESET}"
+    echo -e "${COLOR_INFO}Discovering Gemini Enterprise Apps in project ${PROJECT_ID}...${COLOR_RESET}"
     ACCESS_TOKEN=$(gcloud auth print-access-token)
     LIST_ENGINES_URL="https://${ENDPOINT_LOCATION}-discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_ID}/locations/${LOCATION}/collections/default_collection/engines"
     
     ENGINES_RESPONSE=$(curl -s -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "X-Goog-User-Project: ${PROJECT_ID}" "${LIST_ENGINES_URL}" || echo "{}")
     
+    # Extract the first engine ID
     DISCOVERED_APP=$(echo "$ENGINES_RESPONSE" | grep -o '"name": *"[^"]*"' | head -n 1 | sed -E 's/.*\/engines\/([^"]+)"/\1/' || echo "")
     
     if [ -n "$DISCOVERED_APP" ]; then
@@ -74,13 +84,10 @@ if [ -z "$APP_ID" ] && command -v gcloud &> /dev/null; then
 fi
 
 if [ -z "$APP_ID" ]; then
-    echo -e "\n${COLOR_WARN}⚠️  No Gemini Enterprise App ID specified or found in project.${COLOR_RESET}"
+    echo -e "\n${COLOR_WARN}⚠️  No Gemini Enterprise App ID found. Set GE_APP_ID in your .env file.${COLOR_RESET}"
     echo -e "To create an App in Gemini Enterprise:"
     echo -e "1. Go to https://console.cloud.google.com/gemini-enterprise/"
-    echo -e "2. Click 'Create App' (e.g. name it 'todoist-agent-app')"
-    echo -e "3. Re-run this script with:"
-    echo -e "   ${COLOR_INFO}GE_APP_ID=your-app-id GOOGLE_CLOUD_PROJECT=${PROJECT_ID} ./scripts/register-ge-a2a.sh${COLOR_RESET}"
-    echo ""
+    echo -e "2. Click 'Create App' and put GE_APP_ID=<app-id> into your .env"
     APP_ID="YOUR_APP_ID"
 fi
 
@@ -94,7 +101,6 @@ if [ -z "$AGENT_SERVICE_URL" ] && command -v gcloud &> /dev/null; then
     fi
 fi
 
-# Fallback default if not discovered
 if [ -z "$AGENT_SERVICE_URL" ]; then
     AGENT_SERVICE_URL="https://example.com/adk-agent"
 fi
@@ -106,10 +112,8 @@ echo -e "• Todoist Client ID:    ${COLOR_SUCCESS}${TODOIST_CLIENT_ID}${COLOR_R
 # Verify HTTPS requirement for Gemini Enterprise
 if [[ ! "$AGENT_SERVICE_URL" =~ ^https:// ]]; then
     echo -e "\n${COLOR_ERROR}❌ ERROR: Gemini Enterprise strictly requires an HTTPS endpoint URL ('${AGENT_SERVICE_URL}' is invalid).${COLOR_RESET}"
-    echo -e "👉 Option 1: Deploy your agent to Google Cloud Run first:"
-    echo -e "   ${COLOR_INFO}make deploy-cloud-run${COLOR_RESET}"
-    echo -e "👉 Option 2: Use an HTTPS tunnel (e.g. cloudflared / ngrok) or pass your HTTPS domain:"
-    echo -e "   ${COLOR_INFO}GE_AGENT_SERVICE_URL=\"https://your-domain.com\" ./scripts/register-ge-a2a.sh${COLOR_RESET}\n"
+    echo -e "👉 Option 1: Deploy your agent to Google Cloud Run: ${COLOR_INFO}make deploy-cloud-run${COLOR_RESET}"
+    echo -e "👉 Option 2: Set GE_AGENT_SERVICE_URL=\"https://your-domain.com\" in your .env file.\n"
     exit 1
 fi
 

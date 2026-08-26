@@ -6,6 +6,15 @@
 
 set -euo pipefail
 
+# Automatically load variables from local .env if present
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -f "${PROJECT_ROOT}/.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "${PROJECT_ROOT}/.env"
+    set +a
+fi
+
 # Configuration defaults
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-}"
 REGION="${GOOGLE_CLOUD_REGION:-us-central1}"
@@ -32,8 +41,8 @@ Environment Variables:
   GOOGLE_API_KEY         Gemini API Key to pass to the container
 
 Examples:
-  GOOGLE_CLOUD_PROJECT=my-gcp-project ./scripts/deploy.sh cloud_run
-  GOOGLE_CLOUD_PROJECT=my-gcp-project ./scripts/deploy.sh agent_engine
+  ./scripts/deploy.sh cloud_run
+  ./scripts/deploy.sh agent_engine
   ./scripts/deploy.sh docker
 EOF
 }
@@ -52,7 +61,7 @@ deploy_docker() {
 deploy_cloud_run() {
   if [[ -z "${PROJECT_ID}" ]]; then
     echo "❌ Error: GOOGLE_CLOUD_PROJECT environment variable is not set."
-    echo "Please set it: export GOOGLE_CLOUD_PROJECT=your-project-id"
+    echo "Please set it in your .env file: GOOGLE_CLOUD_PROJECT=your-project-id"
     exit 1
   fi
 
@@ -113,7 +122,7 @@ deploy_cloud_run() {
 
 deploy_agent_engine() {
   if [[ -z "${PROJECT_ID}" ]]; then
-    echo "❌ Error: GOOGLE_CLOUD_PROJECT environment variable is not set."
+    echo "❌ Error: GOOGLE_CLOUD_PROJECT environment variable is not set in .env or environment."
     exit 1
   fi
 
@@ -165,4 +174,3 @@ case "${MODE}" in
     exit 1
     ;;
 esac
-
