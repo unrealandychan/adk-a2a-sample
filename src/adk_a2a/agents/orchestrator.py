@@ -42,16 +42,12 @@ class OrchestratorAgent:
         Decomposes complex requests (e.g. multi-city weather comparisons)
         and delegates to appropriate sub-agents or tools.
         """
-        logger.info(
-            "Orchestrator [%s] starting task execution: %s", self.name, task.goal
-        )
+        logger.info("Orchestrator [%s] starting task execution: %s", self.name, task.goal)
         goal_lower = task.goal.lower()
 
         # Check for multi-city temperature comparison scenario
         cities_detected = [
-            c
-            for c in ["tokyo", "paris", "london", "new york", "san francisco"]
-            if c in goal_lower
+            c for c in ["tokyo", "paris", "london", "new york", "san francisco"] if c in goal_lower
         ]
 
         if len(cities_detected) >= 2 and (

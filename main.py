@@ -29,20 +29,14 @@ def serve_command(host: str, port: int, mode: str = "adk") -> None:
         mode: 'adk' (uses official to_a2a utility) or 'custom' (uses custom FastAPI app).
     """
     logger.info("Starting ADK A2A server [%s mode] on %s:%d", mode, host, port)
-    app = (
-        expose_agent_via_to_a2a(host=host, port=port)
-        if mode == "adk"
-        else create_a2a_app()
-    )
+    app = expose_agent_via_to_a2a(host=host, port=port) if mode == "adk" else create_a2a_app()
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
 def run_command(goal: str) -> None:
     """Runs a direct goal through the master orchestrator agent."""
     settings = get_settings()
-    logger.info(
-        "Initializing Master Orchestrator Agent (Model: %s)", settings.adk_model
-    )
+    logger.info("Initializing Master Orchestrator Agent (Model: %s)", settings.adk_model)
     orchestrator = create_orchestrator_agent(model=settings.adk_model)
 
     task = AgentTask(goal=goal)
@@ -84,9 +78,7 @@ def todoist_auth_command(exchange_code: str | None = None) -> None:
     status = get_todoist_auth_status()
 
     if exchange_code:
-        print(
-            "\n🔄 Exchanging authorization code with Todoist token endpoint..."
-        )
+        print("\n🔄 Exchanging authorization code with Todoist token endpoint...")
         try:
             tokens = exchange_todoist_code(code=exchange_code)
             print("✅ Token Exchange Successful!")
@@ -149,14 +141,10 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    subparsers = parser.add_subparsers(
-        dest="command", help="Available commands"
-    )
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Command: run
-    run_parser = subparsers.add_parser(
-        "run", help="Execute an orchestrator goal"
-    )
+    run_parser = subparsers.add_parser("run", help="Execute an orchestrator goal")
     run_parser.add_argument(
         "goal",
         nargs="?",
@@ -165,9 +153,7 @@ def main() -> None:
     )
 
     # Command: serve
-    serve_parser = subparsers.add_parser(
-        "serve", help="Launch the A2A HTTP server"
-    )
+    serve_parser = subparsers.add_parser("serve", help="Launch the A2A HTTP server")
     serve_parser.add_argument(
         "--host",
         default=settings.a2a_server_host,
@@ -187,9 +173,7 @@ def main() -> None:
     )
 
     # Command: info
-    subparsers.add_parser(
-        "info", help="Display A2A Agent Card and configuration"
-    )
+    subparsers.add_parser("info", help="Display A2A Agent Card and configuration")
 
     # Command: todoist-auth
     todoist_parser = subparsers.add_parser(
@@ -240,9 +224,7 @@ def main() -> None:
     elif args.command == "run":
         run_command(goal=args.goal)
     else:
-        run_command(
-            goal="Compare the temperature difference between Tokyo and Paris"
-        )
+        run_command(goal="Compare the temperature difference between Tokyo and Paris")
 
 
 if __name__ == "__main__":

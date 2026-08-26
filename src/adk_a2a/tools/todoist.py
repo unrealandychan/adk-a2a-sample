@@ -3,6 +3,7 @@
 import contextvars
 import json
 import urllib.parse
+import uuid
 from typing import Any
 
 import httpx
@@ -122,15 +123,13 @@ def exchange_todoist_code(
             return data
     except Exception as exc:
         logger.error("Failed to exchange Todoist OAuth authorization code: %s", exc)
-        raise ToolExecutionError(
-            f"Failed to exchange Todoist OAuth2 code: {exc}"
-        ) from exc
+        raise ToolExecutionError(f"Failed to exchange Todoist OAuth2 code: {exc}") from exc
 
 
 def get_todoist_tasks(
     project_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Retrieves active tasks from Todoist REST API v2.
+    """Retrieves active tasks from Todoist API v1.
 
     Args:
         project_id: Optional project ID to filter tasks.
@@ -179,7 +178,13 @@ def get_todoist_tasks(
                 params=params,
             )
             response.raise_for_status()
-            tasks: list[dict[str, Any]] = response.json()
+            data = response.json()
+            if isinstance(data, dict) and "results" in data:
+                tasks: list[dict[str, Any]] = data["results"]
+            elif isinstance(data, list):
+                tasks = data
+            else:
+                tasks = []
             return tasks
     except Exception as exc:
         logger.error("Error fetching Todoist tasks: %s", exc)
@@ -210,9 +215,7 @@ def create_todoist_task(
     token = get_effective_todoist_token()
 
     if not token:
-        logger.info(
-            "Simulating task creation in sandbox mode for content: %s", content
-        )
+        logger.info("Simulating task creation in sandbox mode for content: %s", content)
         simulated_task = TodoistTask(
             id="simulated-task-999",
             content=content,
@@ -273,22 +276,32 @@ def complete_todoist_task(
     token = get_effective_todoist_token()
 
     if not token:
-        logger.info(
-            "Simulating task completion in sandbox mode for task_id: %s", task_id
-        )
+        logger.info("Simulating task completion in sandbox mode for task_id: %s", task_id)
         return {
             "status": "completed (simulated)",
             "task_id": task_id,
             "success": True,
         }
 
-    headers = {"Authorization": f"Bearer {token}"}
+    sync_payload = {
+        "commands": [
+            {
+                "type": "item_close",
+                "uuid": str(uuid.uuid4()),
+                "args": {"id": task_id},
+            }
+        ]
+    }
 
     try:
         with httpx.Client(timeout=10.0) as client:
             response = client.post(
-                f"{settings.todoist_api_base_url}/tasks/{task_id}/close",
-                headers=headers,
+                f"{settings.todoist_api_base_url}/sync",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                content=json.dumps(sync_payload),
             )
             response.raise_for_status()
             return {

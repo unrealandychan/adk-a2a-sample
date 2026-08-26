@@ -59,10 +59,7 @@ def test_todoist_auth_status() -> None:
     """Tests retrieving auth status object."""
     status = get_todoist_auth_status()
     assert status.client_id == "f1d3a4ec08fb4b60a61679156e2edd92"
-    assert (
-        status.redirect_uri
-        == "https://vertexaisearch.cloud.google.com/oauth-redirect"
-    )
+    assert status.redirect_uri == "https://vertexaisearch.cloud.google.com/oauth-redirect"
     assert status.auth_url is not None
 
 
@@ -82,9 +79,7 @@ def test_create_todoist_task_sandbox() -> None:
 
 def test_create_todoist_task_empty_fails() -> None:
     """Tests that empty task content raises ToolExecutionError."""
-    with pytest.raises(
-        ToolExecutionError, match="Task content cannot be empty"
-    ):
+    with pytest.raises(ToolExecutionError, match="Task content cannot be empty"):
         create_todoist_task(content="")
 
 
@@ -161,3 +156,49 @@ def test_orchestrator_delegation_to_todoist() -> None:
     assert response.success is True
     assert response.sub_agent_name == "todoist_agent"
     assert "Todoist Tasks" in response.output
+
+
+def test_get_todoist_tasks_v1_results_envelope() -> None:
+    """Tests parsing Todoist API v1 {"results": [...]} response format."""
+    from adk_a2a.tools.todoist import set_current_todoist_token
+
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "results": [{"id": "6XGgmFVcrG5RRjVr", "content": "Buy groceries", "priority": 1}],
+        "next_cursor": None,
+    }
+    mock_response.raise_for_status.return_value = None
+
+    set_current_todoist_token("mock_token_abc")
+    try:
+        with patch("httpx.Client.get", return_value=mock_response) as mock_get:
+            tasks = get_todoist_tasks()
+            assert len(tasks) == 1
+            assert tasks[0]["id"] == "6XGgmFVcrG5RRjVr"
+            assert tasks[0]["content"] == "Buy groceries"
+            assert mock_get.called
+            called_url = mock_get.call_args[0][0]
+            assert "/api/v1/tasks" in called_url
+    finally:
+        set_current_todoist_token(None)
+
+
+def test_complete_todoist_task_v1_sync_endpoint() -> None:
+    """Tests completing a task via Todoist API v1 /sync endpoint."""
+    from adk_a2a.tools.todoist import set_current_todoist_token
+
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"sync_status": {"ok": True}}
+    mock_response.raise_for_status.return_value = None
+
+    set_current_todoist_token("mock_token_abc")
+    try:
+        with patch("httpx.Client.post", return_value=mock_response) as mock_post:
+            res = complete_todoist_task(task_id="6XGgmFVcrG5RRjVr")
+            assert res["status"] == "completed"
+            assert res["success"] is True
+            assert mock_post.called
+            called_url = mock_post.call_args[0][0]
+            assert "/api/v1/sync" in called_url
+    finally:
+        set_current_todoist_token(None)

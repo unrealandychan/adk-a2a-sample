@@ -101,4 +101,3 @@ def create_ge_graph_agent(
         model=model,
         sub_agents=[coordinator.remote_weather_agent, coordinator.calculator_agent],
     )
-

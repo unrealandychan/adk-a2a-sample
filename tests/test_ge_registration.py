@@ -12,9 +12,7 @@ from adk_a2a.integrations.ge_registration import (
 
 def test_gemini_enterprise_agent_card() -> None:
     """Tests that Agent Card conforms to Gemini Enterprise A2A v0.3.0 schema."""
-    card = build_gemini_enterprise_agent_card(
-        agent_url="https://a2a.example.com"
-    )
+    card = build_gemini_enterprise_agent_card(agent_url="https://a2a.example.com")
 
     assert card["protocolVersion"] == "0.3.0"
     assert card["url"] == "https://a2a.example.com"
@@ -32,10 +30,7 @@ def test_ge_authorization_payload() -> None:
         auth_id="todoist-auth-id",
     )
 
-    assert (
-        payload["name"]
-        == "projects/1234567890/locations/global/authorizations/todoist-auth-id"
-    )
+    assert payload["name"] == "projects/1234567890/locations/global/authorizations/todoist-auth-id"
     oauth_config = payload["serverSideOauth2"]
     settings = get_settings()
     assert oauth_config["clientId"] == settings.todoist_client_id

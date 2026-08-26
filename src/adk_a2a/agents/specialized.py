@@ -48,15 +48,11 @@ class DomainAgent:
 
         Provides deterministic simulation / execution for testing and tooling seams.
         """
-        logger.info(
-            "Agent [%s] received task %s: %s", self.name, task.task_id, task.goal
-        )
+        logger.info("Agent [%s] received task %s: %s", self.name, task.task_id, task.goal)
         goal_lower = task.goal.lower()
 
         # Weather Agent specialization logic
-        if "weather" in self.name or any(
-            t.__name__ == "get_city_weather" for t in self.tools
-        ):
+        if "weather" in self.name or any(t.__name__ == "get_city_weather" for t in self.tools):
             for city in ["tokyo", "paris", "london", "new york", "san francisco"]:
                 if city in goal_lower:
                     weather_data = get_city_weather(city)
@@ -73,9 +69,7 @@ class DomainAgent:
                     )
 
         # Calculator Agent specialization logic
-        if "calculator" in self.name or any(
-            t.__name__ == "calculate" for t in self.tools
-        ):
+        if "calculator" in self.name or any(t.__name__ == "calculate" for t in self.tools):
             expr = task.goal.replace("calculate", "").replace("compute", "").strip()
             if expr:
                 try:
@@ -91,9 +85,7 @@ class DomainAgent:
                     logger.warning("Calculation failed in agent: %s", exc)
 
         # Todoist Agent specialization logic
-        if "todoist" in self.name or any(
-            t.__name__ == "get_todoist_tasks" for t in self.tools
-        ):
+        if "todoist" in self.name or any(t.__name__ == "get_todoist_tasks" for t in self.tools):
             if "create" in goal_lower or "add" in goal_lower:
                 task_created = create_todoist_task(content=task.goal)
                 return AgentResponse(
@@ -105,9 +97,7 @@ class DomainAgent:
                 )
             tasks = get_todoist_tasks()
             task_titles = [f"- [{t['id']}] {t['content']}" for t in tasks]
-            output_msg = (
-                f"Todoist Tasks ({len(tasks)} found):\n" + "\n".join(task_titles)
-            )
+            output_msg = f"Todoist Tasks ({len(tasks)} found):\n" + "\n".join(task_titles)
             return AgentResponse(
                 task_id=task.task_id,
                 output=output_msg,
@@ -247,4 +237,3 @@ def create_adk_unified_agent(model: str = "gemini-2.5-flash") -> Agent:
         ],
         model=model,
     )
-

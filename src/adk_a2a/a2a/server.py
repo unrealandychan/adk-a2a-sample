@@ -25,21 +25,18 @@ logger = get_logger(__name__)
 
 
 class AuthHeaderMiddleware(BaseHTTPMiddleware):
-    """Captures OAuth Bearer token from Gemini Enterprise / A2A proxy headers into context."""
+    """Middleware extracting incoming OAuth authorization headers into request-scoped context."""
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
-        token = None
-        for header_name, header_val in request.headers.items():
-            if "authorization" in header_name.lower():
-                if header_val.lower().startswith("bearer "):
-                    token = header_val[7:].strip()
-                    break
-                elif header_val:
-                    token = header_val.strip()
-        if token:
-            set_current_todoist_token(token)
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        auth_header = (
+            request.headers.get("Authorization")
+            or request.headers.get("x-forwarded-authorization")
+            or request.headers.get("x-user-authorization")
+        )
+        if auth_header:
+            set_current_todoist_token(auth_header)
+        else:
+            set_current_todoist_token(None)
         return await call_next(request)
 
 
@@ -78,7 +75,7 @@ def expose_agent_via_to_a2a(
     )
 
     app = to_a2a(
-        target_agent,
+        agent=target_agent,
         host=host,
         port=port,
         agent_card=agent_card,

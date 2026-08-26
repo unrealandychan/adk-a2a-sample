@@ -94,4 +94,3 @@ def test_create_ge_graph_agent() -> None:
     )
     assert agent.name == "graph_engine_orchestrator"
     assert len(agent.sub_agents) == 2
-

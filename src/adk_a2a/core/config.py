@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     todoist_auth_url: str = "https://todoist.com/oauth/authorize"
     todoist_token_url: str = "https://todoist.com/oauth/access_token"
     todoist_scopes: str = "data:read_write,task:add"
-    todoist_api_base_url: str = "https://api.todoist.com/rest/v2"
+    todoist_api_base_url: str = "https://api.todoist.com/api/v1"
 
     def setup_google_credentials(self) -> None:
         """Configures GenAI / ADK to use Vertex AI via Service Account / ADC when no API key is set."""
