@@ -1,12 +1,14 @@
 """Master Root Orchestrator Agent delegating tasks to sub-agents and A2A peers."""
 
-from google.adk.agents import Agent
+from google.adk.agents import Agent, BaseAgent
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
 
 from adk_a2a.agents.specialized import (
     DomainAgent,
     create_adk_calculator_agent,
+    create_adk_todoist_agent,
     create_calculator_agent,
+    create_todoist_agent,
     create_weather_agent,
 )
 from adk_a2a.core.config import get_settings
@@ -31,6 +33,7 @@ class OrchestratorAgent:
         self.sub_agents: list[DomainAgent] = sub_agents or [
             create_weather_agent(model=model),
             create_calculator_agent(model=model),
+            create_todoist_agent(model=model),
         ]
 
     def run(self, task: AgentTask) -> AgentResponse:
@@ -39,12 +42,16 @@ class OrchestratorAgent:
         Decomposes complex requests (e.g. multi-city weather comparisons)
         and delegates to appropriate sub-agents or tools.
         """
-        logger.info("Orchestrator [%s] starting task execution: %s", self.name, task.goal)
+        logger.info(
+            "Orchestrator [%s] starting task execution: %s", self.name, task.goal
+        )
         goal_lower = task.goal.lower()
 
         # Check for multi-city temperature comparison scenario
         cities_detected = [
-            c for c in ["tokyo", "paris", "london", "new york", "san francisco"] if c in goal_lower
+            c
+            for c in ["tokyo", "paris", "london", "new york", "san francisco"]
+            if c in goal_lower
         ]
 
         if len(cities_detected) >= 2 and (
@@ -82,6 +89,10 @@ class OrchestratorAgent:
                 op in goal_lower for op in ["+", "-", "*", "/", "calc"]
             ):
                 return sub_agent.execute(task)
+            if "todoist" in sub_agent.name and any(
+                kw in goal_lower for kw in ["todo", "task", "todoist"]
+            ):
+                return sub_agent.execute(task)
 
         # Default fallback execution
         return AgentResponse(
@@ -107,7 +118,7 @@ def create_orchestrator_agent(
 def create_adk_remote_weather_agent(
     agent_card_url: str | None = None,
 ) -> RemoteA2aAgent:
-    """Factory creating an ADK RemoteA2aAgent connected to an exposed A2A agent."""
+    """Factory creating an ADK RemoteA2aAgent connected to an exposed A2A weather agent."""
     settings = get_settings()
     card_url = agent_card_url or settings.remote_weather_agent_url
     return RemoteA2aAgent(
@@ -117,21 +128,40 @@ def create_adk_remote_weather_agent(
     )
 
 
+def create_adk_remote_todoist_agent(
+    agent_card_url: str | None = None,
+) -> RemoteA2aAgent:
+    """Factory creating an ADK RemoteA2aAgent connected to an exposed A2A Todoist agent."""
+    settings = get_settings()
+    card_url = agent_card_url or settings.remote_todoist_agent_url
+    return RemoteA2aAgent(
+        name="remote_todoist_agent",
+        agent_card=card_url,
+        description="Remote Todoist task agent communicating via A2A protocol.",
+    )
+
+
 def create_adk_orchestrator_agent(
     model: str = "gemini-2.5-flash",
     remote_weather_card_url: str | None = None,
+    include_todoist: bool = True,
 ) -> Agent:
     """Factory creating native ADK 2.0 Root Agent consuming remote and local sub-agents."""
     remote_weather = create_adk_remote_weather_agent(remote_weather_card_url)
     calculator = create_adk_calculator_agent(model=model)
 
+    sub_agents: list[BaseAgent] = [remote_weather, calculator]
+    if include_todoist:
+        todoist_agent = create_adk_todoist_agent(model=model)
+        sub_agents.append(todoist_agent)
+
     return Agent(
         name="root_orchestrator_agent",
         description="Master root agent that coordinates with local and remote A2A micro-agents.",
         instruction=(
-            "You are the master root agent. Delegate weather queries to the remote weather agent "
-            "and arithmetic computations to the calculator agent."
+            "You are the master root agent. Delegate weather queries to the remote weather agent, "
+            "arithmetic computations to the calculator agent, and task management to the Todoist agent."
         ),
         model=model,
-        sub_agents=[remote_weather, calculator],
+        sub_agents=sub_agents,
     )

@@ -11,7 +11,7 @@ COLOR_INFO   := \033[36m
 COLOR_SUCCESS:= \033[32m
 COLOR_WARN   := \033[33m
 
-.PHONY: help install run serve info test lint format check report docker-build docker-up docker-down deploy-cloud-run deploy-ge clean
+.PHONY: help install run serve info todoist-auth test lint format check report docker-build docker-up docker-down deploy-cloud-run deploy-ge clean
 
 ## 📋 Help & Overview
 help: ## Show this help message
@@ -36,6 +36,9 @@ serve: ## Start A2A micro-agent server on port 8080 (to_a2a mode)
 
 info: ## Display A2A Agent Card and environment settings
 	@uv run python main.py info
+
+todoist-auth: ## Display Todoist OAuth2 login URL and instructions
+	@uv run python main.py todoist-auth
 
 ## 🧪 Testing & Code Quality
 test: ## Run automated pytest suite
@@ -86,4 +89,3 @@ clean: ## Remove temporary cache and test artifacts
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	@echo -e "$(COLOR_SUCCESS)Clean complete.$(COLOR_RESET)"
-

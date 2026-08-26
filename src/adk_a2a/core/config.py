@@ -27,7 +27,18 @@ class Settings(BaseSettings):
 
     # Remote A2A Agent Endpoints
     remote_weather_agent_url: str = "http://127.0.0.1:8080/.well-known/agent-card.json"
+    remote_todoist_agent_url: str = "http://127.0.0.1:8080/.well-known/agent-card.json"
     adk_suppress_a2a_experimental_feature_warnings: bool = True
+
+    # Todoist App OAuth2 Configuration
+    todoist_client_id: str = "f1d3a4ec08fb4b60a61679156e2edd92"
+    todoist_client_secret: str = "f1d3a4ec08fb4b60a61679156e2edd92"
+    todoist_redirect_uri: str = "https://vertexaisearch.cloud.google.com/oauth-redirect"
+    todoist_api_token: str = ""
+    todoist_auth_url: str = "https://todoist.com/oauth/authorize"
+    todoist_token_url: str = "https://todoist.com/oauth/access_token"
+    todoist_scopes: str = "data:read_write,task:add"
+    todoist_api_base_url: str = "https://api.todoist.com/rest/v2"
 
 
 @lru_cache

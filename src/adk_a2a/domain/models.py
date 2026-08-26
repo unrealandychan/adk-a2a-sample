@@ -36,6 +36,32 @@ class CalculationResult(BaseModel):
     result: float
 
 
+class TodoistTask(BaseModel):
+    """Value object representing a Todoist task."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    content: str
+    is_completed: bool = False
+    due_date: str | None = None
+    priority: int = 1
+    project_id: str | None = None
+    url: str | None = None
+
+
+class TodoistAuthStatus(BaseModel):
+    """Value object representing Todoist OAuth2 authentication state."""
+
+    model_config = ConfigDict(frozen=True)
+
+    is_authenticated: bool
+    access_token_present: bool
+    client_id: str
+    redirect_uri: str
+    auth_url: str | None = None
+
+
 class AgentTask(BaseModel):
     """Domain entity representing a task submitted to an agent."""
 

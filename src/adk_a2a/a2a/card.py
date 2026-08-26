@@ -11,11 +11,12 @@ def build_agent_card() -> AgentCard:
 
     return AgentCard(
         name="adk_weather_and_compute_service",
-        description="A2A-compliant micro-agent providing meteorological lookup and mathematical computation.",
+        description="A2A-compliant micro-agent providing meteorological lookup, mathematics, and Todoist tasks.",
         version="1.0.0",
         capabilities=[
             "weather:get_city_weather",
             "math:calculate",
+            "todoist:manage_tasks",
             "delegation:a2a_task_execution",
         ],
         endpoints={

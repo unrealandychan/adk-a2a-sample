@@ -10,6 +10,7 @@ from adk_a2a.agents.orchestrator import create_orchestrator_agent
 from adk_a2a.core.config import get_settings
 from adk_a2a.core.logging import configure_logging, get_logger
 from adk_a2a.domain.models import AgentTask
+from adk_a2a.tools.todoist import exchange_todoist_code, get_todoist_auth_status
 
 logger = get_logger(__name__)
 
@@ -23,14 +24,20 @@ def serve_command(host: str, port: int, mode: str = "adk") -> None:
         mode: 'adk' (uses official to_a2a utility) or 'custom' (uses custom FastAPI app).
     """
     logger.info("Starting ADK A2A server [%s mode] on %s:%d", mode, host, port)
-    app = expose_agent_via_to_a2a(host=host, port=port) if mode == "adk" else create_a2a_app()
+    app = (
+        expose_agent_via_to_a2a(host=host, port=port)
+        if mode == "adk"
+        else create_a2a_app()
+    )
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
 def run_command(goal: str) -> None:
     """Runs a direct goal through the master orchestrator agent."""
     settings = get_settings()
-    logger.info("Initializing Master Orchestrator Agent (Model: %s)", settings.adk_model)
+    logger.info(
+        "Initializing Master Orchestrator Agent (Model: %s)", settings.adk_model
+    )
     orchestrator = create_orchestrator_agent(model=settings.adk_model)
 
     task = AgentTask(goal=goal)
@@ -67,6 +74,38 @@ def info_command() -> None:
     print("───────────────────────────────────────────────────────────\n")
 
 
+def todoist_auth_command(exchange_code: str | None = None) -> None:
+    """Displays Todoist OAuth2 instructions or exchanges an auth code."""
+    status = get_todoist_auth_status()
+
+    if exchange_code:
+        print(
+            "\n🔄 Exchanging authorization code with Todoist token endpoint..."
+        )
+        try:
+            tokens = exchange_todoist_code(code=exchange_code)
+            print("✅ Token Exchange Successful!")
+            print(f"Access Token: {tokens.get('access_token')}")
+            print(f"Token Type:   {tokens.get('token_type')}")
+        except Exception as exc:
+            print(f"❌ Error exchanging code: {exc}")
+        return
+
+    print("\n🔐 Todoist App OAuth 2.0 Configuration:")
+    print("───────────────────────────────────────────────────────────")
+    print(f"Client ID:    {status.client_id}")
+    print(f"Redirect URI: {status.redirect_uri}")
+    print(
+        f"Auth Status:  {'Authenticated' if status.is_authenticated else 'Requires Authorization'}"
+    )
+    print("\n👉 Step 1: Open this URL in your browser to authorize:")
+    print(f"   {status.auth_url}")
+    print("\n👉 Step 2: After consent, copy the 'code' parameter from redirect URL.")
+    print("👉 Step 3: Run:")
+    print("   uv run python main.py todoist-auth --exchange YOUR_AUTH_CODE")
+    print("───────────────────────────────────────────────────────────\n")
+
+
 def main() -> None:
     """Main CLI entrypoint."""
     settings = get_settings()
@@ -77,10 +116,14 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    subparsers = parser.add_subparsers(
+        dest="command", help="Available commands"
+    )
 
     # Command: run
-    run_parser = subparsers.add_parser("run", help="Execute an orchestrator goal")
+    run_parser = subparsers.add_parser(
+        "run", help="Execute an orchestrator goal"
+    )
     run_parser.add_argument(
         "goal",
         nargs="?",
@@ -89,7 +132,9 @@ def main() -> None:
     )
 
     # Command: serve
-    serve_parser = subparsers.add_parser("serve", help="Launch the A2A HTTP server")
+    serve_parser = subparsers.add_parser(
+        "serve", help="Launch the A2A HTTP server"
+    )
     serve_parser.add_argument(
         "--host",
         default=settings.a2a_server_host,
@@ -109,7 +154,20 @@ def main() -> None:
     )
 
     # Command: info
-    subparsers.add_parser("info", help="Display A2A Agent Card and configuration")
+    subparsers.add_parser(
+        "info", help="Display A2A Agent Card and configuration"
+    )
+
+    # Command: todoist-auth
+    todoist_parser = subparsers.add_parser(
+        "todoist-auth", help="Manage Todoist OAuth2 authentication"
+    )
+    todoist_parser.add_argument(
+        "--exchange",
+        dest="exchange_code",
+        default=None,
+        help="Exchange an OAuth authorization code for an access token",
+    )
 
     args = parser.parse_args()
 
@@ -117,10 +175,14 @@ def main() -> None:
         serve_command(host=args.host, port=args.port, mode=args.mode)
     elif args.command == "info":
         info_command()
+    elif args.command == "todoist-auth":
+        todoist_auth_command(exchange_code=args.exchange_code)
     elif args.command == "run":
         run_command(goal=args.goal)
     else:
-        run_command(goal="Compare the temperature difference between Tokyo and Paris")
+        run_command(
+            goal="Compare the temperature difference between Tokyo and Paris"
+        )
 
 
 if __name__ == "__main__":

@@ -103,6 +103,22 @@ graph_agent = create_ge_graph_agent(
 )
 ```
 
+### 3. Todoist App OAuth 2.0 Integration
+Follows the official [ADK Custom Tools OAuth 2.0 Authentication specification](https://adk.dev/tools-custom/authentication/#oauth2):
+
+- **Client ID**: `f1d3a4ec08fb4b60a61679156e2edd92`
+- **Redirect URI**: `https://vertexaisearch.cloud.google.com/oauth-redirect`
+- **Scopes**: `data:read_write,task:add`
+- **Supported Operations**: List tasks (`get_todoist_tasks`), Create task (`create_todoist_task`), Complete task (`complete_todoist_task`), and OAuth token exchange (`exchange_todoist_code`).
+
+```bash
+# Display OAuth login URL and instruction:
+make todoist-auth
+
+# Exchange authorization code:
+uv run python main.py todoist-auth --exchange <AUTHORIZATION_CODE>
+```
+
 ---
 
 ## 🚀 Deployment Scripts
