@@ -1,0 +1,22 @@
+services:
+  a2a-remote-weather:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: adk-a2a-weather-service:latest
+    container_name: adk_remote_weather_agent
+    environment:
+      - PORT=8080
+      - HOST=0.0.0.0
+      - ADK_ENVIRONMENT=development
+      - ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS=true
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/.well-known/agent-card.json')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
