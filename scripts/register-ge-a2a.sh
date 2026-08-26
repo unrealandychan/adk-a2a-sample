@@ -14,7 +14,7 @@ APP_ID="${GE_APP_ID:-}"
 AUTH_ID="${GE_AUTH_ID:-todoist-oauth-auth}"
 AGENT_NAME="${GE_AGENT_NAME:-todoist_weather_agent}"
 AGENT_DISPLAY_NAME="${GE_AGENT_DISPLAY_NAME:-Todoist & Weather Assistant}"
-AGENT_SERVICE_URL="${GE_AGENT_SERVICE_URL:-http://127.0.0.1:8080}"
+AGENT_SERVICE_URL="${GE_AGENT_SERVICE_URL:-}"
 
 # Todoist OAuth Credentials
 TODOIST_CLIENT_ID="${TODOIST_CLIENT_ID:-f1d3a4ec08fb4b60a61679156e2edd92}"
@@ -65,7 +65,6 @@ if [ -z "$APP_ID" ] && command -v gcloud &> /dev/null; then
     
     ENGINES_RESPONSE=$(curl -s -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "X-Goog-User-Project: ${PROJECT_ID}" "${LIST_ENGINES_URL}" || echo "{}")
     
-    # Try to extract the first engine ID
     DISCOVERED_APP=$(echo "$ENGINES_RESPONSE" | grep -o '"name": *"[^"]*"' | head -n 1 | sed -E 's/.*\/engines\/([^"]+)"/\1/' || echo "")
     
     if [ -n "$DISCOVERED_APP" ]; then
@@ -85,9 +84,34 @@ if [ -z "$APP_ID" ]; then
     APP_ID="YOUR_APP_ID"
 fi
 
+# Auto-discover Cloud Run service URL if AGENT_SERVICE_URL is not explicitly set
+if [ -z "$AGENT_SERVICE_URL" ] && command -v gcloud &> /dev/null; then
+    echo -e "${COLOR_INFO}Checking for deployed Cloud Run service URL (adk-a2a-service)...${COLOR_RESET}"
+    CLOUD_RUN_URL=$(gcloud run services describe adk-a2a-service --region="${CLOUD_RUN_REGION:-us-central1}" --format="value(status.url)" 2>/dev/null || echo "")
+    if [ -n "$CLOUD_RUN_URL" ]; then
+        AGENT_SERVICE_URL="$CLOUD_RUN_URL"
+        echo -e "• Discovered Cloud Run HTTPS URL: ${COLOR_SUCCESS}${AGENT_SERVICE_URL}${COLOR_RESET}"
+    fi
+fi
+
+# Fallback default if not discovered
+if [ -z "$AGENT_SERVICE_URL" ]; then
+    AGENT_SERVICE_URL="https://example.com/adk-agent"
+fi
+
 echo -e "• Target GE App ID:     ${COLOR_SUCCESS}${APP_ID}${COLOR_RESET}"
 echo -e "• A2A Agent Service URL:${COLOR_SUCCESS}${AGENT_SERVICE_URL}${COLOR_RESET}"
 echo -e "• Todoist Client ID:    ${COLOR_SUCCESS}${TODOIST_CLIENT_ID}${COLOR_RESET}"
+
+# Verify HTTPS requirement for Gemini Enterprise
+if [[ ! "$AGENT_SERVICE_URL" =~ ^https:// ]]; then
+    echo -e "\n${COLOR_ERROR}❌ ERROR: Gemini Enterprise strictly requires an HTTPS endpoint URL ('${AGENT_SERVICE_URL}' is invalid).${COLOR_RESET}"
+    echo -e "👉 Option 1: Deploy your agent to Google Cloud Run first:"
+    echo -e "   ${COLOR_INFO}make deploy-cloud-run${COLOR_RESET}"
+    echo -e "👉 Option 2: Use an HTTPS tunnel (e.g. cloudflared / ngrok) or pass your HTTPS domain:"
+    echo -e "   ${COLOR_INFO}GE_AGENT_SERVICE_URL=\"https://your-domain.com\" ./scripts/register-ge-a2a.sh${COLOR_RESET}\n"
+    exit 1
+fi
 
 # Step 1: Add Authorization Resource to Gemini Enterprise
 echo -e "\n${COLOR_INFO}[Step 1/2] Creating Todoist OAuth 2.0 Authorization Resource in GE...${COLOR_RESET}"
@@ -149,6 +173,4 @@ if [ "$APP_ID" != "YOUR_APP_ID" ]; then
     echo -e "https://console.cloud.google.com/gemini-enterprise/apps/${APP_ID}/agents"
 else
     echo -e "\n${COLOR_WARN}Skipping Step 2 because no valid GE_APP_ID was provided.${COLOR_RESET}"
-    echo -e "Once you create your App in Gemini Enterprise, run:"
-    echo -e "${COLOR_INFO}GE_APP_ID=<your-app-id> GOOGLE_CLOUD_PROJECT=${PROJECT_ID} ./scripts/register-ge-a2a.sh${COLOR_RESET}"
 fi
